@@ -83,6 +83,10 @@ jQuery(document).ready(function () {
 
             /* Responsive Modal: มือถือให้กว้างเกือบเต็มจอ */
             #baby-font-manager-modal {
+                position: fixed !important;   /* ยืนยันว่าต้องลอย */
+                top: 50% !important;          /* ดึงลงมาจากด้านบน 50% */
+                left: 50% !important;         /* ดึงมาจากด้านซ้าย 50% */
+                transform: translate(-50%, -50%) !important; /* เลื่อนตัวเองกลับมาให้กึ่งกลางพอดี */
                 width: 90vw !important; /* กว้าง 90% ของจอ */
                 max-width: 400px;       /* แต่ไม่เกิน 400px */
                 max-height: 85vh;
