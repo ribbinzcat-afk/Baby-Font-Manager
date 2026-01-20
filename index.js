@@ -157,16 +157,42 @@ jQuery(document).ready(function () {
     jQuery('body').append(floatingBtn);
 
     // 3.4 สร้างปุ่มในเมนู Extensions (SillyTavern Menu)
-    const menuBtn = jQuery(`
-        <div class="list-group-item" id="baby-font-menu-item" title="เปิดหน้าต่างจัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
-            <span class="fa-solid fa-font" style="color: #ff99b5;"></span>
-            <span>Baby Font Manager</span>
-        </div>
-    `);
-    // เช็คก่อนว่ามีปุ่มนี้หรือยัง แล้วค่อยใส่
-    if (jQuery('#baby-font-menu-item').length === 0) {
-        jQuery('#extensions_menu').append(menuBtn);
+
+        function addMenuButton() {
+        // เช็คว่ามีปุ่มของเราอยู่แล้วหรือยัง (กันเบิ้ล)
+        if (jQuery('#baby-font-menu-item').length > 0) return;
+
+        // หาเมนูเป้าหมาย (ปกติ SillyTavern จะใช้ id="extensions_menu")
+        const targetMenu = jQuery('#extensions_menu');
+
+        // ถ้าเจอเมนูแล้ว ค่อยยัดปุ่มเข้าไป
+        if (targetMenu.length > 0) {
+            const menuBtn = jQuery(`
+                <div class="list-group-item" id="baby-font-menu-item" title="เปิดหน้าต่างจัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                    <span class="fa-solid fa-font" style="color: #ff99b5; width: 20px; text-align: center;"></span>
+                    <span>Baby Font Manager</span>
+                </div>
+            `);
+
+            menuBtn.on('click', () => {
+                updateFontList(); // อัปเดตรายการก่อนเปิด
+                jQuery('#baby-font-manager-modal').fadeIn();
+            });
+
+            targetMenu.append(menuBtn);
+            console.log("BabyFont: แปะปุ่มในเมนูสำเร็จแล้วจ้า! 🎉");
+
+            // เลิกซุ่มรอ (Clear Interval)
+            if (window.babyMenuInterval) clearInterval(window.babyMenuInterval);
+        }
     }
+
+    // สั่งให้ซุ่มรอเช็คทุกๆ 1 วินาที ว่าเมนูมาหรือยัง
+    window.babyMenuInterval = setInterval(addMenuButton, 1000);
+
+    // ลองเรียกครั้งแรกเลยเผื่อฟลุ๊ค
+    addMenuButton();
+
 
     // ---------------------------------------------------------
     // 4. จัดการ Logic การทำงาน (Logic & Events)
@@ -320,7 +346,7 @@ jQuery(document).ready(function () {
     // ฟังก์ชัน Global ให้ปุ่มในรายการเรียกใช้ได้
     window.applyBabyFont = applyFont;
     window.deleteBabyFont = (index) => {
-        if(confirm('ลบฟอนต์นี้จริงๆ เหรอคะ?')) {
+        if(confirm('ลบฟอนต์นี้จริงๆ เหรอครับ? 🥺')) {
             savedFonts.splice(index, 1);
             localStorage.setItem(storageKey, JSON.stringify(savedFonts));
             updateFontList();
