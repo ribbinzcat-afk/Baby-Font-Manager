@@ -332,9 +332,9 @@ jQuery(document).ready(function () {
     // ฟังก์ชันสำหรับสร้างปุ่ม (แยกออกมาจะได้เรียกใช้ซ้ำได้)
     function createMenuBtn() {
         return jQuery(`
-            <div class="list-group-item baby-font-menu-item" title="เปิดหน้าต่างจัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid #ff99b5; background: rgba(255, 153, 181, 0.1); margin-bottom: 2px;">
+            <div class="list-group-item baby-font-menu-item" title="เปิดหน้าต่างจัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid #ff99b5; background: rgba(255, 153, 181, 0.1); margin-bottom: 2px; padding: 10px; border-radius: 10px;">
                 <span class="fa-solid fa-font" style="color: #ff99b5;"></span>
-                <span style="font-weight: bold; color: #ccc;">Baby Font Manager</span>
+                <span style="font-weight: bold; color: #ccc;">🎀 Baby Font Manager 🎀</span>
             </div>
         `);
     }
@@ -381,5 +381,5 @@ jQuery(document).ready(function () {
         // clearInterval(checkMenuInterval);
 
     }, 2000); // เช็คทุกๆ 2 วินาที (ใจเย็นๆ)
-    
+
 });
