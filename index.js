@@ -117,7 +117,7 @@ jQuery(document).ready(function () {
     const savedBtnPos = JSON.parse(localStorage.getItem(storageKey + "_BtnPos") || '{"top":"10px","right":"100px"}');
 
     const floatingBtn = jQuery(`
-        <div id="baby-font-trigger-btn" title="เปลี่ยนฟอนต์">🅰️</div>
+        <div id="baby-font-trigger-btn" title="เปลี่ยนฟอนต์">🎀</div>
     `);
 
     floatingBtn.css({
@@ -192,6 +192,10 @@ jQuery(document).ready(function () {
             // คำนวณตำแหน่งใหม่ (เอา transform ออกแล้วใช้ top/left ตรงๆ เพื่อความง่ายในการลาก)
             const newTop = e.clientY - offsetModal.y;
             const newLeft = e.clientX - offsetModal.x;
+
+            // กันไม่ให้ลากตกจอ (Boundary Check)
+            const maxTop = jQuery(window).height() - element.outerHeight();
+            const maxLeft = jQuery(window).width() - element.outerWidth();
 
             modal.css({
                 top: newTop + 'px',
