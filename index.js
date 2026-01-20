@@ -1,180 +1,188 @@
-// index.js - ฉบับมีปุ่มกดแล้วจ้า!
-
 import { extension_settings } from "../../../extensions.js";
 import { saveSettingsDebounced } from "../../../script.js";
 
 const extensionName = "BabyFontManager";
 const extensionFolderPath = `scripts/extensions/${extensionName}/`;
+const storageKey = "BabyCustomFonts";
 
-// โหลด CSS เข้ามาเสริมสวย
-function loadCSS() {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `${extensionFolderPath}style.css`;
-    document.head.appendChild(link);
-}
+// --- ส่วนที่ 1: ระบบจัดการฟอนต์ (สมองกล) ---
 
-// สร้าง HTML ของหน้าต่าง Modal (ห้องแต่งตัว)
-function createModal() {
-    // เช็คก่อนว่ามี Modal อยู่แล้วหรือยัง จะได้ไม่สร้างซ้ำ
-    if (document.getElementById('baby-font-manager-modal')) return;
+// โหลดฟอนต์ที่เคยเก็บไว้ในความทรงจำ
+let savedFonts = JSON.parse(localStorage.getItem(storageKey) || "[]");
+let currentFont = localStorage.getItem(storageKey + "_Active");
 
-    const modalHtml = `
-        <div id="baby-font-manager-modal" class="baby-font-modal" style="display:none;">
-            <div class="baby-modal-content">
-                <div class="baby-modal-header">
-                    <h3>🎀 คลังฟอนต์ของคุณเบบี้ 🎀</h3>
-                    <span id="close-baby-modal" class="baby-close-btn">&times;</span>
-                </div>
-                <div class="baby-modal-body">
-                    <p>เลือกฟอนต์น่ารักๆ มาใส่ได้เลยค่ะ!</p>
-                    <input type="file" id="baby-font-upload" accept=".ttf,.otf,.woff,.woff2">
-                    <div id="baby-font-preview" class="font-preview-box">
-                        ตัวอย่าง: The quick brown fox jumps over the lazy dog.
-                        <br>
-                        ตัวอย่าง: คุณเบบี้คนสวยน่ารักที่สุดในโลก!
-                    </div>
-                    <button id="baby-apply-font" class="baby-btn">✨ ใช้ฟอนต์นี้เลย ✨</button>
-                    <button id="baby-reset-font" class="baby-btn-secondary">ล้างค่ากลับเป็นเดิม</button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // แปะ Modal ลงไปใน Body ของเว็บ
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-    // ผูก Event ให้ปุ่มปิด Modal
-    document.getElementById('close-baby-modal').addEventListener('click', () => {
-        document.getElementById('baby-font-manager-modal').style.display = 'none';
-    });
-
-    // คลิกพื้นที่ว่างๆ นอกกล่องเพื่อปิด
-    window.addEventListener('click', (event) => {
-        const modal = document.getElementById('baby-font-manager-modal');
-        if (event.target === modal) {
-            modal.style.display = 'none';
-        }
-    });
-
-    // --- ส่วนสำคัญ! ผูกฟังก์ชันให้ปุ่มต่างๆ ทำงาน ---
-    document.getElementById('baby-font-upload').addEventListener('change', handleFontUpload);
-    document.getElementById('baby-apply-font').addEventListener('click', applyFontSettings);
-    document.getElementById('baby-reset-font').addEventListener('click', resetFontSettings);
-}
-
-// --- พระเอกของเรา! ฟังก์ชันสร้างปุ่มกดเปิดเมนู ---
-function createMenuButton() {
-    // หาที่อยู่ของแถบเมนูข้างบน (Top Bar)
-    const topBar = document.querySelector('#quick-reply-container') || document.querySelector('.nav-buttons');
-
-    if (!topBar) {
-        console.error("หาที่วางปุ่มไม่เจอครับ! แต่ไม่เป็นไร เดี๋ยวโรโบแปะไว้มุมขวาบนให้ก่อน");
-        // ถ้าหาที่วางไม่ได้จริงๆ ให้สร้างปุ่มลอยๆ ไว้มุมจอ
-        const floatingBtn = document.createElement('div');
-        floatingBtn.id = "baby-font-trigger";
-        floatingBtn.innerHTML = "🅰️";
-        floatingBtn.className = "menu_button";
-        floatingBtn.style.cssText = "position:fixed; top:10px; right:10px; z-index:9998; cursor:pointer; font-size:24px;";
-        floatingBtn.title = "เปลี่ยนฟอนต์";
-        document.body.appendChild(floatingBtn);
-
-        floatingBtn.addEventListener('click', () => {
-            document.getElementById('baby-font-manager-modal').style.display = 'block';
-        });
-        return;
+// ฟังก์ชันฉีดวัคซีน... เอ้ย! ฉีดฟอนต์เข้าสู่ระบบ
+function injectFont(name, dataUrl) {
+    // เช็คก่อนว่ามีฟอนต์นี้หรือยัง จะได้ไม่ฉีดซ้ำ
+    const styleId = `font-style-${name.replace(/\s+/g, '-')}`;
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            @font-face {
+                font-family: '${name}';
+                src: url('${dataUrl}');
+            }
+        `;
+        document.head.appendChild(style);
     }
-
-    // สร้างปุ่ม
-    const button = document.createElement('div');
-    button.id = "baby-font-trigger";
-    button.className = "menu_button fa-solid fa-font"; // ใช้ไอคอน Font Awesome
-    button.title = "เปลี่ยนฟอนต์มุ้งมิ้ง";
-
-    // แต่งสีปุ่มให้เด่นๆ หน่อย
-    button.style.color = "#ffb7b2"; // สีชมพูอ่อนๆ
-    button.style.cursor = "pointer";
-
-    // กดแล้วเปิด Modal
-    button.addEventListener('click', () => {
-        const modal = document.getElementById('baby-font-manager-modal');
-        if(modal) modal.style.display = 'block';
-    });
-
-    // แปะปุ่มลงไปในแถบเมนู
-    topBar.appendChild(button);
 }
 
-// ฟังก์ชันจัดการตอนอัปโหลดไฟล์ (แบบย่อ)
-function handleFontUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+// ฟังก์ชันเปลี่ยนฟอนต์ให้ทั้งหน้าเว็บสวยวิ้ง
+function applyFont(name) {
+    if (!name) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const fontData = e.target.result;
-        // เก็บข้อมูลฟอนต์ไว้ในตัวแปรชั่วคราว หรือ Preview ให้ดู
-        document.getElementById('baby-font-preview').style.fontFamily = 'BabyCustomFont';
-
-        // สร้าง FontFace ชั่วคราวเพื่อดูตัวอย่าง
-        const newFont = new FontFace('BabyCustomFont', `url(${fontData})`);
-        newFont.load().then(function(loadedFont) {
-            document.fonts.add(loadedFont);
-            document.getElementById('baby-font-preview').style.fontFamily = 'BabyCustomFont';
-        });
-
-        // เก็บข้อมูลไฟล์ไว้รอการบันทึก (ในที่นี้เราจะเก็บใน localStorage แบบง่ายๆ)
-        localStorage.setItem('BabyCustomFontData', fontData);
-    };
-    reader.readAsDataURL(file);
-}
-
-// ฟังก์ชันกดปุ่ม "ใช้เลย"
-function applyFontSettings() {
-    const fontData = localStorage.getItem('BabyCustomFontData');
-    if (!fontData) {
-        alert("ยังไม่ได้เลือกฟอนต์เลยครับคุณเบบี้!");
-        return;
-    }
-
-    // สร้าง Style Tag เพื่อบังคับใช้ฟอนต์กับทั้งหน้าเว็บ
-    let styleTag = document.getElementById('baby-font-style-override');
+    // สร้าง Style Override เพื่อบังคับใช้ฟอนต์กับทุกส่วนที่ดื้อดึง
+    let styleTag = document.getElementById('baby-font-global-override');
     if (!styleTag) {
         styleTag = document.createElement('style');
-        styleTag.id = 'baby-font-style-override';
+        styleTag.id = 'baby-font-global-override';
         document.head.appendChild(styleTag);
     }
 
     styleTag.innerHTML = `
-        @font-face {
-            font-family: 'BabyMainFont';
-            src: url('${fontData}');
-        }
-        body, textarea, input, .mes_text {
-            font-family: 'BabyMainFont', sans-serif !important;
+        body, textarea, input, .mes_text, .name_text, #chat_header, .drawer-content {
+            font-family: '${name}', sans-serif !important;
         }
     `;
 
-    alert("เปลี่ยนฟอนต์เรียบร้อย! น่ารักขึ้น 300% ครับ!");
-    document.getElementById('baby-font-manager-modal').style.display = 'none';
+    localStorage.setItem(storageKey + "_Active", name);
+    toastr.success(`เปลี่ยนโลกเป็นฟอนต์ ${name} เรียบร้อยครับ!`, "Baby Font Manager");
 }
 
-function resetFontSettings() {
-    localStorage.removeItem('BabyCustomFontData');
-    const styleTag = document.getElementById('baby-font-style-override');
-    if (styleTag) styleTag.remove();
-    alert("กลับมาใช้ฟอนต์เดิมแล้วครับ");
-}
+// ฟังก์ชันลบฟอนต์ (เผื่อเบื่อแล้ว)
+window.deleteBabyFont = (index) => {
+    if (!confirm("จะลบน้องฟอนต์คนนี้จริงๆ เหรอครับ? 🥺")) return;
 
-// เริ่มทำงานเมื่อ SillyTavern โหลดเสร็จ
-jQuery(async () => {
-    loadCSS();
-    createModal();
-    createMenuButton(); // <--- บรรทัดนี้แหละที่ผมลืม!
+    savedFonts.splice(index, 1);
+    localStorage.setItem(storageKey, JSON.stringify(savedFonts));
+    updateFontList(); // รีเฟรชรายการใหม่
+    toastr.info("ลบฟอนต์เรียบร้อยครับ", "Baby Font Manager");
+};
 
-    // โหลดฟอนต์เก่าที่เคยตั้งไว้ (ถ้ามี)
-    const savedFont = localStorage.getItem('BabyCustomFontData');
-    if (savedFont) {
-        applyFontSettings();
+// ฟังก์ชันเลือกใช้ฟอนต์ (สำหรับปุ่มในรายการ)
+window.applyBabyFont = applyFont;
+
+// --- ส่วนที่ 2: หน้าตา UI (ความสวยงาม) ---
+
+// ฟังก์ชันอัปเดตรายการฟอนต์ในหน้าต่าง
+function updateFontList() {
+    const list = $('#baby-font-list');
+    list.empty();
+
+    if (savedFonts.length === 0) {
+        list.append('<div style="text-align:center; color:#888; padding:20px;">ยังไม่มีฟอนต์เลยครับ เหงาจัง... 🍃</div>');
+        return;
     }
+
+    savedFonts.forEach((font, index) => {
+        // แอบฉีดฟอนต์เพื่อให้แสดงผลตัวอย่างได้
+        injectFont(font.name, font.data);
+
+        const item = $(`
+            <div class="font-list-item" style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); margin-bottom:5px; padding:8px; border-radius:5px;">
+                <span class="font-preview" style="font-family:'${font.name}'; font-size:1.1em; color:#ffb7b2;">${font.name}</span>
+                <div style="display:flex; gap:5px;">
+                    <button class="menu_button" style="padding:5px 10px;" onclick="window.applyBabyFont('${font.name}')">✅ ใช้</button>
+                    <button class="menu_button menu_button_icon" style="color:#ff6b6b;" onclick="window.deleteBabyFont(${index})"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        `);
+        list.append(item);
+    });
+}
+
+// สร้างหน้าต่าง Modal (ห้องแต่งตัว)
+function createModal() {
+    if ($('#baby-font-manager-modal').length) return;
+
+    const modalHtml = `
+        <div id="baby-font-manager-modal" class="baby-font-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:9999; width: 450px; max-height: 80vh; overflow-y: auto; background:var(--SmartTheme-bg-color, #202020); border:2px solid #ff99b5; border-radius:10px; padding:20px; box-shadow:0 0 20px rgba(255, 153, 181, 0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="color:#ff99b5; margin:0;">🎀 คลังฟอนต์ของคุณเบบี้</h3>
+                <div id="baby-close-btn" style="cursor:pointer; font-size:1.5em; color:#888;">&times;</div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:8px; margin-bottom:20px;">
+                <label style="display:block; margin-bottom:5px; color:#ddd;">เพิ่มฟอนต์ใหม่ (.ttf / .otf)</label>
+                <input type="file" id="baby-font-upload" accept=".ttf,.otf,.woff,.woff2" style="width:100%; margin-bottom:10px;">
+                <input type="text" id="baby-font-name" class="text_pole" placeholder="ตั้งชื่อฟอนต์น่ารักๆ..." style="width:100%; margin-bottom:10px;">
+                <button id="baby-save-btn" class="menu_button" style="width:100%; background:linear-gradient(45deg, #ff99b5, #ffb7b2); color:#222; font-weight:bold;">✨ บันทึกเข้าคลัง ✨</button>
+            </div>
+
+            <div id="baby-font-list" style="max-height:300px; overflow-y:auto;">
+                <!-- รายชื่อฟอนต์จะโผล่ตรงนี้ -->
+            </div>
+        </div>
+        <div id="baby-modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9998;"></div>
+    `;
+    $('body').append(modalHtml);
+
+    // Event Listeners สำหรับใน Modal
+    $('#baby-close-btn, #baby-modal-backdrop').on('click', () => {
+        $('#baby-font-manager-modal, #baby-modal-backdrop').fadeOut(200);
+    });
+
+    $('#baby-save-btn').on('click', () => {
+        const fileInput = document.getElementById('baby-font-upload');
+        const nameInput = $('#baby-font-name').val();
+
+        if (fileInput.files.length === 0) {
+            toastr.warning("เลือกไฟล์ฟอนต์ก่อนสิครับคนสวย!", "เตือนแล้วนะ");
+            return;
+        }
+        if (!nameInput) {
+            toastr.warning("ตั้งชื่อให้น้องฟอนต์หน่อยครับ!", "เตือนแล้วนะ");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const fontData = e.target.result;
+            savedFonts.push({ name: nameInput, data: fontData });
+            localStorage.setItem(storageKey, JSON.stringify(savedFonts));
+
+            injectFont(nameInput, fontData);
+            updateFontList();
+            toastr.success("บันทึกเรียบร้อย! พร้อมใช้งานแล้วครับ", "สำเร็จ");
+
+            // เคลียร์ค่า
+            fileInput.value = '';
+            $('#baby-font-name').val('');
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+    });
+}
+
+// --- ส่วนที่ 3: เริ่มต้นทำงาน (Initialization) ---
+
+jQuery(async () => {
+    // 1. โหลด CSS เสริมสวย (ถ้ามีไฟล์ style.css)
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `${extensionFolderPath}style.css`;
+    document.head.appendChild(link);
+
+    // 2. สร้างหน้าต่างเตรียมไว้
+    createModal();
+
+    // 3. สร้างปุ่มกดเปิดเมนู (วางไว้ตรงแถบเครื่องมือด้านบน)
+    const openBtn = $(`<div class="menu_button fa-solid fa-font" title="จัดการฟอนต์คุณเบบี้" style="order:100;"></div>`);
+
+    // ลองหาที่วาง (ปกติคือ #extensions_menu หรือ .nav-buttons)
+    let targetContainer = $('#extensions_menu');
+    if (targetContainer.length === 0) targetContainer = $('.nav-buttons').first();
+
+    targetContainer.append(openBtn);
+
+    openBtn.on('click', () => {
+        updateFontList();
+        $('#baby-font-manager-modal, #baby-modal-backdrop').fadeIn(200);
+    });
+
+    // 4. โหลดฟอนต์เดิมกลับมาใช้ (ถ้าเคยเลือกไว้)
+    savedFonts.forEach(font => injectFont(font.name, font.data));
+    if (currentFont) applyFont(currentFont);
+
+    console.log(`${extensionName} loaded successfully! 🎀`);
 });
