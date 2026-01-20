@@ -327,41 +327,59 @@ jQuery(document).ready(function () {
         }
     };
 
-        // --- ส่วนเพิ่มปุ่มในเมนู Extensions (ฉบับนินจา: รอจนกว่าเมนูจะมา) ---
+            // --- ส่วนเพิ่มปุ่มในเมนู (ฉบับแฮกเกอร์หว่านแห 🕸️) ---
 
-    function addMenuButton() {
-        // เช็คว่ามีปุ่มของเราอยู่แล้วหรือยัง (กันเบิ้ล)
-        if (jQuery('#baby-font-menu-item').length > 0) return;
-
-        // หาเมนูเป้าหมาย (ปกติ SillyTavern จะใช้ id="extensions_menu")
-        const targetMenu = jQuery('#extensions_menu');
-
-        // ถ้าเจอเมนูแล้ว ค่อยยัดปุ่มเข้าไป
-        if (targetMenu.length > 0) {
-            const menuBtn = jQuery(`
-                <div class="list-group-item" id="baby-font-menu-item" title="เปิดหน้าต่างจัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
-                    <span class="fa-solid fa-font" style="color: #ff99b5; width: 20px; text-align: center;"></span>
-                    <span>Baby Font Manager</span>
-                </div>
-            `);
-
-            menuBtn.on('click', () => {
-                updateFontList(); // อัปเดตรายการก่อนเปิด
-                jQuery('#baby-font-manager-modal').fadeIn();
-            });
-
-            targetMenu.append(menuBtn);
-            console.log("BabyFont: แปะปุ่มในเมนูสำเร็จแล้วจ้า! 🎉");
-
-            // เลิกซุ่มรอ (Clear Interval)
-            if (window.babyMenuInterval) clearInterval(window.babyMenuInterval);
-        }
+    // ฟังก์ชันสำหรับสร้างปุ่ม (แยกออกมาจะได้เรียกใช้ซ้ำได้)
+    function createMenuBtn() {
+        return jQuery(`
+            <div class="list-group-item baby-font-menu-item" title="เปิดหน้าต่างจัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid #ff99b5; background: rgba(255, 153, 181, 0.1); margin-bottom: 2px;">
+                <span class="fa-solid fa-font" style="color: #ff99b5;"></span>
+                <span style="font-weight: bold; color: #ccc;">Baby Font Manager</span>
+            </div>
+        `);
     }
 
-    // สั่งให้ซุ่มรอเช็คทุกๆ 1 วินาที ว่าเมนูมาหรือยัง
-    window.babyMenuInterval = setInterval(addMenuButton, 1000);
+    // ตัวแปรเช็คว่าเจอหรือยัง
+    let menuFound = false;
 
-    // ลองเรียกครั้งแรกเลยเผื่อฟลุ๊ค
-    addMenuButton();
+    const checkMenuInterval = setInterval(() => {
+        // รายชื่อผู้ต้องสงสัย (ID ที่เป็นไปได้ทั้งหมดของเมนู Extensions)
+        const possibleTargets = [
+            '#extensions_settings',       // ชื่อที่คุณเบบี้เดา (น่าสงสัยที่สุด!)
+            '#extensions_menu',           // ชื่อมาตรฐานเก่า
+            '#rm_extensions_block',       // เมนูฝั่งขวา
+            '.extensions_menu',           // เผื่อเป็น Class
+            '#top-bar'                    // ถ้าหาไม่เจอจริงๆ เอาไปแปะบนแถบบาร์ข้างบนซะเลย!
+        ];
 
+        possibleTargets.forEach(selector => {
+            const target = jQuery(selector);
+            // ถ้าเจอเป้าหมาย และเป้าหมายนั้นยังไม่มีปุ่มของเรา
+            if (target.length > 0 && target.find('.baby-font-menu-item').length === 0) {
+                console.log("✅ BabyFont: เจอที่อยู่แล้ว! -> " + selector);
+
+                const btn = createMenuBtn();
+
+                // ถ้าเป็น Top Bar ให้ปุ่มเล็กหน่อย
+                if (selector === '#top-bar') {
+                    btn.css({ 'width': 'auto', 'border': 'none', 'background': 'transparent', 'padding': '0 10px' });
+                    btn.html('<span class="fa-solid fa-font" style="color: #ff99b5; font-size: 1.2em;"></span>');
+                }
+
+                target.append(btn);
+
+                // สั่งให้กดแล้วเปิดหน้าต่าง
+                btn.on('click', () => {
+                    updateFontList();
+                    jQuery('#baby-font-manager-modal').fadeIn();
+                });
+
+                menuFound = true; // เย้ เจอแล้ว!
+            }
+        });
+        // ถ้าเจอแล้ว (และไม่ใช่แค่ Top Bar) เราอาจจะหยุดหาได้... แต่เพื่อความชัวร์ ปล่อยให้มันหาไปเรื่อยๆ ดีกว่าครับ เผื่อ SillyTavern โหลดใหม่
+        // clearInterval(checkMenuInterval);
+
+    }, 2000); // เช็คทุกๆ 2 วินาที (ใจเย็นๆ)
+    
 });
