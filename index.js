@@ -3,7 +3,7 @@
 import { extension_settings } from "../../../extensions.js";
 import { saveSettingsDebounced } from "../../../script.js";
 
-const extensionName = "🎀 คลังฟอนต์ของคุณเบบี้ 🎀";
+const extensionName = "BabyFontManager";
 const extensionFolderPath = `scripts/extensions/${extensionName}/`;
 
 // โหลด CSS เข้ามาเสริมสวย
