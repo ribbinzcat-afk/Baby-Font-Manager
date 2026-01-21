@@ -369,5 +369,20 @@ jQuery(document).ready(function () {
             </div>
         `);
     }
+        const checkMenuInterval = setInterval(() => {
+        const possibleTargets = ['#extensions_settings', '#extensions_menu', '#rm_extensions_block', '.extensions_menu'];
+        possibleTargets.forEach(selector => {
+            const target = jQuery(selector);
+            if (target.length > 0 && target.find('.baby-font-menu-item').length === 0) {
+                const btn = createMenuBtn();
+                if (selector === '#top-bar') {
+                    btn.css({ 'width': 'auto', 'border': 'none', 'background': 'transparent', 'padding': '0 10px' });
+                    btn.html('<span class="fa-solid fa-font" style="color: #ff99b5; font-size: 1.2em;"></span>');
+                }
+                target.append(btn);
+                btn.on('click', () => { updateFontList(); jQuery('#baby-font-manager-modal').fadeIn(); });
+            }
+        });
+    }, 2000);
     
 });
