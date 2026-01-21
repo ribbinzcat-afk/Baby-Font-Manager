@@ -343,7 +343,7 @@ jQuery(document).ready(function () {
     });
 
     jQuery('#baby-reset-btn').on('click', () => {
-        if(confirm('คืนค่าฟอนต์เดิม?')) {
+        if(confirm('ต้องการคืนค่าเป็นฟอนต์เริ่มต้นใช่ไหมคะ?')) {
             myData.currentFont = null;
             saveData(); // บันทึกค่าว่าง
             applyFont(null);
@@ -353,7 +353,7 @@ jQuery(document).ready(function () {
 
     window.applyBabyFont = applyFont;
     window.deleteBabyFont = (index) => {
-        if(confirm('ลบฟอนต์นี้?')) {
+        if(confirm('จะลบฟอนต์นี้จริงๆ เหรอคะ? 🥺')) {
             myData.savedFonts.splice(index, 1);
             saveData(); // บันทึกการลบ
             updateFontList();
@@ -369,20 +369,5 @@ jQuery(document).ready(function () {
             </div>
         `);
     }
-
-    const checkMenuInterval = setInterval(() => {
-        const possibleTargets = ['#extensions_settings', '#extensions_menu', '#rm_extensions_block', '.extensions_menu', '#top-bar'];
-        possibleTargets.forEach(selector => {
-            const target = jQuery(selector);
-            if (target.length > 0 && target.find('.baby-font-menu-item').length === 0) {
-                const btn = createMenuBtn();
-                if (selector === '#top-bar') {
-                    btn.css({ 'width': 'auto', 'border': 'none', 'background': 'transparent', 'padding': '0 10px' });
-                    btn.html('<span class="fa-solid fa-font" style="color: #ff99b5; font-size: 1.2em;"></span>');
-                }
-                target.append(btn);
-                btn.on('click', () => { updateFontList(); jQuery('#baby-font-manager-modal').fadeIn(); });
-            }
-        });
-    }, 2000);
+    
 });
