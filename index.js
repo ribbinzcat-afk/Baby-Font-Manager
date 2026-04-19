@@ -126,7 +126,7 @@ jQuery(document).ready(function () {
     }
     if (myData.currentFont) {
         // ใช้ setTimeout นิดนึงเพื่อให้แน่ใจว่า CSS โหลดเสร็จ
-        setTimeout(() => applyFont(myData.currentFont), 100);
+        setTimeout(() => applyFont(myData.currentFont), 1000);
     }
 
     // ---------------------------------------------------------
