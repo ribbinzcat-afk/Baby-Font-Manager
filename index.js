@@ -192,9 +192,9 @@ jQuery(document).ready(function () {
         jQuery('head').append(`<div id="baby-custom-style-tag">${customStyle}</div>`);
     }
 
-    // 🛡️ แก้ไข CSS ให้ Modal อยู่ตรงกลางจอเสมอ
+    // 🛡️ แก้ไข Modal: เปลี่ยนจาก top:50% เป็น top:5vh และใช้ margin:auto เพื่อไม่ให้ทะลุขอบจอบน
     const modalHtml = `
-        <div id="baby-font-manager-modal" class="baby-font-modal" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; overflow-y: auto; background: rgba(20, 20, 20, 0.95); border: 2px solid #ff99b5; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(255, 153, 181, 0.3); backdrop-filter: blur(10px); width: 90vw; max-width: 400px; max-height: 85vh;">
+        <div id="baby-font-manager-modal" class="baby-font-modal" style="display:none; position: fixed; top: 5vh; left: 0; right: 0; margin: auto; z-index: 9999; overflow-y: auto; background: rgba(20, 20, 20, 0.95); border: 2px solid #ff99b5; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(255, 153, 181, 0.3); backdrop-filter: blur(10px); width: 90vw; max-width: 400px; max-height: 85vh;">
 
             <div id="baby-modal-header" style="cursor: grab; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid rgba(255,153,181,0.3); touch-action: none;">
                 <h3 style="color:#ff99b5; text-align:center; margin:0; pointer-events: none;">🎀 คลังฟอนต์ของคุณเบบี้ 🎀</h3>
@@ -228,7 +228,6 @@ jQuery(document).ready(function () {
     if (jQuery('#baby-font-manager-modal').length > 0) jQuery('#baby-font-manager-modal').remove();
     jQuery('body').append(modalHtml);
 
-    // สร้างปุ่มลอยฟ้า
     if (jQuery('#baby-font-trigger-btn').length > 0) jQuery('#baby-font-trigger-btn').remove();
     const floatingBtn = jQuery(`<div id="baby-font-trigger-btn" title="เปลี่ยนฟอนต์">🎀</div>`);
 
@@ -292,8 +291,7 @@ jQuery(document).ready(function () {
             const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
             const dx = clientX - startX;
             const dy = clientY - startY;
-            // ลบ transform ออกตอนลาก เพื่อไม่ให้ตำแหน่งเพี้ยน
-            element.css({ top: (initialTop + dy) + 'px', left: (initialLeft + dx) + 'px', right: 'auto', transform: 'none' });
+            element.css({ top: (initialTop + dy) + 'px', left: (initialLeft + dx) + 'px', right: 'auto', margin: '0', transform: 'none' });
         }
 
         function dragEnd() {
@@ -316,18 +314,19 @@ jQuery(document).ready(function () {
     makeDraggable(jQuery('#baby-font-manager-modal'), jQuery('#baby-modal-header'), false);
 
     // ---------------------------------------------------------
-    // 5. General Listeners
+    // 5. General Listeners & The Ultimate Guard 🛡️
     // ---------------------------------------------------------
 
-    // 🛡️ ฟังก์ชันเปิด Modal พร้อมจัดให้อยู่ตรงกลางจอเสมอ
+    // 🛡️ แก้ไขฟังก์ชันเปิด Modal ให้เกาะด้านบนจอเสมอ
     function openBabyModal() {
         updateFontList();
         const modal = jQuery('#baby-font-manager-modal');
-        // บังคับรีเซ็ตตำแหน่งกลับมาตรงกลาง
         modal.css({
-            'top': '50%',
-            'left': '50%',
-            'transform': 'translate(-50%, -50%)'
+            'top': '5vh',
+            'left': '0',
+            'right': '0',
+            'margin': 'auto',
+            'transform': 'none'
         });
         modal.fadeIn();
     }
@@ -338,7 +337,7 @@ jQuery(document).ready(function () {
     floatingBtn.on('mouseup touchend', (e) => {
         if (!isDragAction) {
             if(e.type === 'touchend') e.preventDefault();
-            openBabyModal(); // เรียกใช้ฟังก์ชันเปิด
+            openBabyModal();
         }
     });
 
@@ -389,8 +388,39 @@ jQuery(document).ready(function () {
         }
     });
 
-    // 🛡️ แก้ไข window.applyBabyFont ให้รองรับพารามิเตอร์ isSilent
-    window.applyBabyFont = (name) => applyFont(name, false);
+    // 🛡️ โคตรไม้ตาย: เปลี่ยนวิธีบังคับฟอนต์ให้ Specificity สูงทะลุเพดาน
+    // และย้ายไปเขียนทับฟังก์ชัน applyFont เดิมที่อยู่ด้านบนด้วยนะคะ!
+    window.applyBabyFont = (name) => {
+        jQuery('#baby-custom-font-style').remove();
+
+        if (!name) {
+             myData.currentFont = null;
+             saveData();
+             return;
+        }
+
+        // ใช้ html:root และ html body บังคับทับทุกกฎของ SillyTavern
+        const forceStyle = jQuery('<style id="baby-custom-font-style"></style>');
+        forceStyle.text(`
+            html:root, body#bg_all {
+                --main-font-family: '${name}', sans-serif !important;
+            }
+            html body,
+            html body .mes_text,
+            html body textarea,
+            html body .text_pole,
+            html body .ch_name,
+            html body .mes_block {
+                font-family: '${name}', sans-serif !important;
+            }
+        `);
+        // ฝังไว้ใน body ให้โหลดทีหลังสุด
+        jQuery('body').append(forceStyle);
+
+        myData.currentFont = name;
+        saveData();
+        toastr.success(`เปลี่ยนฟอนต์เป็น ${name} แล้วค่ะ! 🎀`, "Baby Font Manager");
+    };
 
     window.deleteBabyFont = (index) => {
         if(confirm('จะลบฟอนต์นี้จริงๆ เหรอคะ? 🥺')) {
@@ -400,7 +430,6 @@ jQuery(document).ready(function () {
         }
     };
 
-    // --- ส่วนเพิ่มปุ่มในเมนู ---
     function createMenuBtn() {
         return jQuery(`
             <div class="list-group-item baby-font-menu-item" title="จัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid #ff99b5; background: rgba(255, 153, 181, 0.1); margin-bottom: 2px; padding: 10px; border-radius: 10px;">
@@ -421,10 +450,23 @@ jQuery(document).ready(function () {
                     btn.html('<span class="fa-solid fa-font" style="color: #ff99b5; font-size: 1.2em;"></span>');
                 }
                 target.append(btn);
-                // 🛡️ เปลี่ยนให้เรียกฟังก์ชันเปิด Modal ที่จัดกึ่งกลางแล้ว
                 btn.on('click', () => { openBabyModal(); });
             }
         });
+    }, 2000);
+
+    // 🛡️ ระบบเฝ้ายามขั้นสูงสุด (The Ultimate Guard)
+    // คอยเช็คทุกๆ 2 วินาที ว่า SillyTavern แอบลบสไตล์ฟอนต์เราทิ้งไหม ถ้าลบปุ๊บ เราเสกกลับปั๊บ!
+    setInterval(() => {
+        if (myData.currentFont && jQuery('#baby-custom-font-style').length === 0) {
+            // ถ้าสไตล์โดนลบ ให้เรียกฟังก์ชันบังคับฟอนต์แบบไม่แจ้งเตือน
+            const forceStyle = jQuery('<style id="baby-custom-font-style"></style>');
+            forceStyle.text(`
+                html:root, body#bg_all { --main-font-family: '${myData.currentFont}', sans-serif !important; }
+                html body, html body .mes_text, html body textarea, html body .text_pole, html body .ch_name, html body .mes_block { font-family: '${myData.currentFont}', sans-serif !important; }
+            `);
+            jQuery('body').append(forceStyle);
+        }
     }, 2000);
 
 });
