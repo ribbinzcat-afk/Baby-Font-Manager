@@ -186,15 +186,15 @@ jQuery(document).ready(function () {
                 font-size: 1em; margin-top: 15px;
             }
             #baby-font-upload { display: none; }
-            #baby-font-manager-modal {
-                width: 90vw !important; max-width: 400px; max-height: 85vh;
-            }
         </style>
     `;
-    jQuery('head').append(customStyle);
+    if (jQuery('#baby-custom-style-tag').length === 0) {
+        jQuery('head').append(`<div id="baby-custom-style-tag">${customStyle}</div>`);
+    }
 
+    // 🛡️ แก้ไข CSS ให้ Modal อยู่ตรงกลางจอเสมอ
     const modalHtml = `
-        <div id="baby-font-manager-modal" class="baby-font-modal" style="display:none; margin: 10px auto; position: fixed; z-index: 9999; overflow-y: auto; background: rgba(20, 20, 20, 0.95); border: 2px solid #ff99b5; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(255, 153, 181, 0.3); backdrop-filter: blur(10px);">
+        <div id="baby-font-manager-modal" class="baby-font-modal" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; overflow-y: auto; background: rgba(20, 20, 20, 0.95); border: 2px solid #ff99b5; border-radius: 15px; padding: 20px; box-shadow: 0 0 20px rgba(255, 153, 181, 0.3); backdrop-filter: blur(10px); width: 90vw; max-width: 400px; max-height: 85vh;">
 
             <div id="baby-modal-header" style="cursor: grab; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid rgba(255,153,181,0.3); touch-action: none;">
                 <h3 style="color:#ff99b5; text-align:center; margin:0; pointer-events: none;">🎀 คลังฟอนต์ของคุณเบบี้ 🎀</h3>
@@ -253,10 +253,9 @@ jQuery(document).ready(function () {
     jQuery('body').append(floatingBtn);
 
     // ---------------------------------------------------------
-    // 4. Logic & Events (Update for Dual Save)
+    // 4. Logic & Events
     // ---------------------------------------------------------
 
-    // [Logic] ซ่อน/แสดงปุ่ม
     if (myData.isFloatingHidden) {
         floatingBtn.hide();
         jQuery('#baby-toggle-float').prop('checked', false);
@@ -269,10 +268,9 @@ jQuery(document).ready(function () {
             floatingBtn.fadeOut();
             myData.isFloatingHidden = true;
         }
-        saveData(); // บันทึกค่า
+        saveData();
     });
 
-    // [Logic] Universal Drag (เหมือนเดิม แต่เพิ่มการบันทึก)
     function makeDraggable(element, handle, isBtn) {
         let isDragging = false;
         let startX, startY, initialLeft, initialTop;
@@ -294,6 +292,7 @@ jQuery(document).ready(function () {
             const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
             const dx = clientX - startX;
             const dy = clientY - startY;
+            // ลบ transform ออกตอนลาก เพื่อไม่ให้ตำแหน่งเพี้ยน
             element.css({ top: (initialTop + dy) + 'px', left: (initialLeft + dx) + 'px', right: 'auto', transform: 'none' });
         }
 
@@ -302,7 +301,6 @@ jQuery(document).ready(function () {
             isDragging = false;
             element.css('cursor', 'grab');
 
-            // ถ้าเป็นปุ่ม ให้บันทึกตำแหน่งลงระบบ
             if (isBtn) {
                 myData.btnPos = { top: element.css('top'), left: element.css('left'), right: 'auto' };
                 saveData();
@@ -321,14 +319,26 @@ jQuery(document).ready(function () {
     // 5. General Listeners
     // ---------------------------------------------------------
 
+    // 🛡️ ฟังก์ชันเปิด Modal พร้อมจัดให้อยู่ตรงกลางจอเสมอ
+    function openBabyModal() {
+        updateFontList();
+        const modal = jQuery('#baby-font-manager-modal');
+        // บังคับรีเซ็ตตำแหน่งกลับมาตรงกลาง
+        modal.css({
+            'top': '50%',
+            'left': '50%',
+            'transform': 'translate(-50%, -50%)'
+        });
+        modal.fadeIn();
+    }
+
     let isDragAction = false;
     floatingBtn.on('touchmove mousemove', () => { isDragAction = true; });
     floatingBtn.on('touchstart mousedown', () => { isDragAction = false; });
     floatingBtn.on('mouseup touchend', (e) => {
         if (!isDragAction) {
             if(e.type === 'touchend') e.preventDefault();
-            updateFontList();
-            jQuery('#baby-font-manager-modal').fadeIn();
+            openBabyModal(); // เรียกใช้ฟังก์ชันเปิด
         }
     });
 
@@ -357,10 +367,7 @@ jQuery(document).ready(function () {
         reader.onload = function(e) {
             const fontData = e.target.result;
 
-            // อัปเดตข้อมูลลงตัวแปรหลัก
             myData.savedFonts.push({ name: nameInput, data: fontData });
-
-            // สั่งบันทึก (ลงทั้ง 2 ที่)
             saveData();
 
             injectFont(nameInput, fontData);
@@ -377,24 +384,23 @@ jQuery(document).ready(function () {
 
     jQuery('#baby-reset-btn').on('click', () => {
         if(confirm('ต้องการคืนค่าเป็นฟอนต์เริ่มต้นใช่ไหมคะ?')) {
-            myData.currentFont = null;
-            saveData(); // บันทึกค่าว่าง
-            applyFont(null);
+            applyFont(null, false);
             toastr.info("รีเซ็ตเรียบร้อย", "Reset");
         }
     });
 
-    // เปลี่ยนตรงนี้ให้รองรับพารามิเตอร์
+    // 🛡️ แก้ไข window.applyBabyFont ให้รองรับพารามิเตอร์ isSilent
     window.applyBabyFont = (name) => applyFont(name, false);
+
     window.deleteBabyFont = (index) => {
         if(confirm('จะลบฟอนต์นี้จริงๆ เหรอคะ? 🥺')) {
             myData.savedFonts.splice(index, 1);
-            saveData(); // บันทึกการลบ
+            saveData();
             updateFontList();
         }
     };
 
-    // --- ส่วนเพิ่มปุ่มในเมนู (Hacker Search 🕸️) ---
+    // --- ส่วนเพิ่มปุ่มในเมนู ---
     function createMenuBtn() {
         return jQuery(`
             <div class="list-group-item baby-font-menu-item" title="จัดการฟอนต์" style="cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid #ff99b5; background: rgba(255, 153, 181, 0.1); margin-bottom: 2px; padding: 10px; border-radius: 10px;">
@@ -403,7 +409,8 @@ jQuery(document).ready(function () {
             </div>
         `);
     }
-        const checkMenuInterval = setInterval(() => {
+
+    const checkMenuInterval = setInterval(() => {
         const possibleTargets = ['#extensions_settings', '#extensions_menu', '#rm_extensions_block', '.extensions_menu'];
         possibleTargets.forEach(selector => {
             const target = jQuery(selector);
@@ -414,9 +421,10 @@ jQuery(document).ready(function () {
                     btn.html('<span class="fa-solid fa-font" style="color: #ff99b5; font-size: 1.2em;"></span>');
                 }
                 target.append(btn);
-                btn.on('click', () => { updateFontList(); jQuery('#baby-font-manager-modal').fadeIn(); });
+                // 🛡️ เปลี่ยนให้เรียกฟังก์ชันเปิด Modal ที่จัดกึ่งกลางแล้ว
+                btn.on('click', () => { openBabyModal(); });
             }
         });
     }, 2000);
-    
+
 });
