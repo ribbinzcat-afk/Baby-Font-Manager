@@ -68,31 +68,43 @@ jQuery(document).ready(function () {
             const style = document.createElement('style');
             style.id = styleId;
             style.textContent = `
-                @font-face { font-family: '${name}'; src: url('${dataUrl}'); }
+                @font-face {
+                    font-family: '${name}';
+                    src: url('${dataUrl}');
+                    font-weight: normal;
+                    font-style: normal;
+                    font-display: swap;
+                }
             `;
             document.head.appendChild(style);
         }
     }
 
-    // 🛡️ เพิ่ม isSilent เพื่อไม่ให้เด้งแจ้งเตือนกวนใจตอนโหลดหน้าเว็บ
     function applyFont(name, isSilent = false) {
-        // ลบสไตล์เก่าออกก่อน
         jQuery('#baby-custom-font-style').remove();
 
         if (!name) {
              myData.currentFont = null;
              if (!isSilent) saveData();
+             jQuery('body').css('font-family', '');
              return;
         }
 
-        // 🛡️ ไม้ตาย: สร้าง Style ฝัง !important บังคับทับทุกจุดใน SillyTavern
+        // 🛡️ แก้ไขเรื่องไอคอนหาย: เจาะจงเฉพาะ body และกล่องข้อความ
+        // ไม่ไปยุ่งกับ span, div, i แล้วค่ะ ไอคอนจะได้ไม่พัง!
         const forceStyle = jQuery('<style id="baby-custom-font-style"></style>');
         forceStyle.text(`
-            body, #bg_all, .mes_text, .text_pole, textarea, input, button, select, .mes_block, .list-group-item, h1, h2, h3, h4, h5, span, div {
+            :root {
+                --main-font-family: '${name}', sans-serif !important;
+            }
+            body, .mes_text, textarea, .text_pole, .ch_name {
                 font-family: '${name}', sans-serif !important;
             }
         `);
         jQuery('head').append(forceStyle);
+
+        // บังคับเปลี่ยนที่ inline style ของ body ด้วย
+        document.body.style.setProperty('font-family', `'${name}', sans-serif`, 'important');
 
         myData.currentFont = name;
         if (!isSilent) saveData();
@@ -129,9 +141,26 @@ jQuery(document).ready(function () {
     }
 
     if (myData.currentFont) {
-        // 🛡️ หน่วงเวลาให้ธีมโหลดเสร็จก่อน และสั่ง isSilent = true เพื่อซ่อนแจ้งเตือนตอนเริ่มแอป
         setTimeout(() => applyFont(myData.currentFont, true), 800);
     }
+
+    // 🛡️ ระบบเฝ้ายาม (MutationObserver): ป้องกัน SillyTavern แย่งฟอนต์กลับ!
+    // ถ้าแอปพยายามเปลี่ยน style ของ body เราจะบังคับเปลี่ยนกลับเป็นฟอนต์ของเราทันที
+    const observer = new MutationObserver((mutations) => {
+        if (myData.currentFont) {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'style') {
+                    const currentBodyFont = document.body.style.fontFamily;
+                    // ถ้าฟอนต์ไม่ใช่ของเรา ให้ยัดกลับเข้าไปใหม่
+                    if (currentBodyFont && !currentBodyFont.includes(myData.currentFont)) {
+                        document.body.style.setProperty('font-family', `'${myData.currentFont}', sans-serif`, 'important');
+                    }
+                }
+            });
+        }
+    });
+    // เริ่มจับตาดูการเปลี่ยนแปลงที่ body
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
 
     // ---------------------------------------------------------
     // 3. สร้างหน้าตา UI (User Interface) - Responsive 📱
