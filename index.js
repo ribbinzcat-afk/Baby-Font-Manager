@@ -13,7 +13,6 @@ jQuery(document).ready(function () {
     // ---------------------------------------------------------
     const storageKey = "BabyCustomFonts";
 
-    // โครงสร้างข้อมูลเริ่มต้น (Default Data Structure)
     const defaultSettings = {
         savedFonts: [],
         currentFont: null,
@@ -21,52 +20,42 @@ jQuery(document).ready(function () {
         isFloatingHidden: false
     };
 
-    // ฟังก์ชันโหลดข้อมูล (Load Data) - เช็คทั้งจาก Server และ Local
     function loadData() {
-        // 1. ลองดึงจาก SillyTavern Settings ก่อน (ของจริง)
-        let settings = extension_settings[EXTENSION_NAME];
+        // ดึงข้อมูลจาก Server
+        let settings = extension_settings[EXTENSION_NAME] || {};
 
-        // 2. ถ้าไม่มีใน Server, ลองดูใน LocalStorage (ของสำรอง)
-        if (!settings) {
-            console.log("🕵️‍♂️ BabyFont: ไม่เจอข้อมูลใน Server, ค้นใน LocalStorage...");
-            const localFonts = JSON.parse(localStorage.getItem(storageKey) || "null");
+        // ดึงข้อมูลสำรองจาก LocalStorage
+        const localFonts = JSON.parse(localStorage.getItem(storageKey) || "null");
 
-            if (localFonts) {
-                // ถ้าเจอของเก่าใน Local, ให้เอามาใช้แล้วเตรียมอัปเกรดขึ้น Server
-                settings = {
-                    savedFonts: localFonts,
-                    currentFont: localStorage.getItem(storageKey + "_Active"),
-                    btnPos: JSON.parse(localStorage.getItem(storageKey + "_BtnPos") || JSON.stringify(defaultSettings.btnPos)),
-                    isFloatingHidden: localStorage.getItem("BabyFont_HideFloat") === "true"
-                };
-            } else {
-                // ถ้าไม่เจออะไรเลย ใช้ค่าเริ่มต้น
-                settings = defaultSettings;
-            }
+        // 🛡️ ระบบกู้ชีพ: ถ้า Server ทำฟอนต์หาย (เพราะไฟล์ใหญ่ไป) ให้ดึงจาก LocalStorage มาใช้
+        if ((!settings.savedFonts || settings.savedFonts.length === 0) && localFonts && localFonts.length > 0) {
+            console.log("🕵️‍♂️ BabyFont: กู้คืนไฟล์ฟอนต์จาก LocalStorage สำเร็จ!");
+            settings.savedFonts = localFonts;
         }
 
-        // ตรวจสอบความสมบูรณ์ของข้อมูล (กัน Error)
+        // กู้คืนชื่อฟอนต์ที่กำลังใช้งาน
+        if (!settings.currentFont) {
+            settings.currentFont = localStorage.getItem(storageKey + "_Active") || null;
+        }
+
         return { ...defaultSettings, ...settings };
     }
 
-    // โหลดข้อมูลมาเก็บไว้ในตัวแปร
     let myData = loadData();
 
-    // ฟังก์ชันบันทึกข้อมูล (Save Data) - เซฟ 2 ทางเพื่อความชัวร์!
     function saveData() {
-        // 1. อัปเดตข้อมูลใน Memory ของ SillyTavern
         extension_settings[EXTENSION_NAME] = myData;
+        saveSettingsDebounced(); // เซฟลง Server
 
-        // 2. สั่งบันทึกลงไฟล์ (Server File)
-        saveSettingsDebounced();
-
-        // 3. แอบบันทึกลง LocalStorage ด้วย (Backup)
-        localStorage.setItem(storageKey, JSON.stringify(myData.savedFonts));
-        if (myData.currentFont) localStorage.setItem(storageKey + "_Active", myData.currentFont);
-        localStorage.setItem(storageKey + "_BtnPos", JSON.stringify(myData.btnPos));
-        localStorage.setItem("BabyFont_HideFloat", myData.isFloatingHidden);
-
-        console.log("💾 BabyFont: บันทึกข้อมูลเรียบร้อย (Dual Save!)");
+        // เซฟลง LocalStorage เผื่อ Server งอแง
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(myData.savedFonts));
+            if (myData.currentFont) localStorage.setItem(storageKey + "_Active", myData.currentFont);
+            localStorage.setItem(storageKey + "_BtnPos", JSON.stringify(myData.btnPos));
+            localStorage.setItem("BabyFont_HideFloat", myData.isFloatingHidden);
+        } catch (e) {
+            console.warn("⚠️ BabyFont: LocalStorage พื้นที่เต็ม แต่ยังทำงานได้อยู่ค่ะ");
+        }
     }
 
     // ---------------------------------------------------------
@@ -85,18 +74,32 @@ jQuery(document).ready(function () {
         }
     }
 
-    function applyFont(name) {
+    // 🛡️ เพิ่ม isSilent เพื่อไม่ให้เด้งแจ้งเตือนกวนใจตอนโหลดหน้าเว็บ
+    function applyFont(name, isSilent = false) {
+        // ลบสไตล์เก่าออกก่อน
+        jQuery('#baby-custom-font-style').remove();
+
         if (!name) {
-             jQuery('body').css('font-family', '');
+             myData.currentFont = null;
+             if (!isSilent) saveData();
              return;
         }
-        jQuery('body').css('font-family', `'${name}', sans-serif`);
 
-        // อัปเดตข้อมูลและบันทึก
+        // 🛡️ ไม้ตาย: สร้าง Style ฝัง !important บังคับทับทุกจุดใน SillyTavern
+        const forceStyle = jQuery('<style id="baby-custom-font-style"></style>');
+        forceStyle.text(`
+            body, #bg_all, .mes_text, .text_pole, textarea, input, button, select, .mes_block, .list-group-item, h1, h2, h3, h4, h5, span, div {
+                font-family: '${name}', sans-serif !important;
+            }
+        `);
+        jQuery('head').append(forceStyle);
+
         myData.currentFont = name;
-        saveData();
+        if (!isSilent) saveData();
 
-        toastr.success(`เปลี่ยนฟอนต์เป็น ${name} แล้วครับ!`, "Baby Font Manager");
+        if (!isSilent) {
+            toastr.success(`เปลี่ยนฟอนต์เป็น ${name} แล้วค่ะ! 🎀`, "Baby Font Manager");
+        }
     }
 
     function updateFontList() {
@@ -121,12 +124,13 @@ jQuery(document).ready(function () {
     }
 
     // เริ่มต้นระบบ: โหลดฟอนต์ที่มีอยู่
-    if (myData.savedFonts) {
+    if (myData.savedFonts && myData.savedFonts.length > 0) {
         myData.savedFonts.forEach(font => injectFont(font.name, font.data));
     }
+
     if (myData.currentFont) {
-        // ใช้ setTimeout นิดนึงเพื่อให้แน่ใจว่า CSS โหลดเสร็จ
-        setTimeout(() => applyFont(myData.currentFont), 1000);
+        // 🛡️ หน่วงเวลาให้ธีมโหลดเสร็จก่อน และสั่ง isSilent = true เพื่อซ่อนแจ้งเตือนตอนเริ่มแอป
+        setTimeout(() => applyFont(myData.currentFont, true), 800);
     }
 
     // ---------------------------------------------------------
@@ -351,7 +355,8 @@ jQuery(document).ready(function () {
         }
     });
 
-    window.applyBabyFont = applyFont;
+    // เปลี่ยนตรงนี้ให้รองรับพารามิเตอร์
+    window.applyBabyFont = (name) => applyFont(name, false);
     window.deleteBabyFont = (index) => {
         if(confirm('จะลบฟอนต์นี้จริงๆ เหรอคะ? 🥺')) {
             myData.savedFonts.splice(index, 1);
